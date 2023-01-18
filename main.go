@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -45,6 +46,18 @@ func main() {
 		person := Person{}
 		c.QueryParser(&person)
 		return c.JSON(person)
+	})
+
+	//Wildcards
+	app.Get("/wildcards/*", func(c *fiber.Ctx) error {
+		wildcards := c.Params("*")
+		return c.SendString(wildcards)
+	})
+
+	//Static file
+	app.Static("/", "./wwwroot", fiber.Static{
+		Index: "index.html",
+		CacheDuration: time.Second * 10,
 	})
 
 	app.Listen(":8000")
