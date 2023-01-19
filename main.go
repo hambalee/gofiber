@@ -5,13 +5,39 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 func main() {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		Prefork: true,
+	})
+
+	//Middleware
+	app.Use("/hello", func(c *fiber.Ctx) error {
+		c.Locals("name", "abc")
+		fmt.Println("before")
+		err := c.Next()
+		fmt.Println("after")
+		return err
+	})
+
+	app.Use(requestid.New())
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "*",
+		AllowHeaders: "*",
+	}))
+
+	// TimeZone: "Asia/Bangkok",
+	app.Use(logger.New(logger.ConfigDefault))
 
 	app.Get("/hello", func(c *fiber.Ctx) error {
-		return c.SendString("GET Hello")
+		name := c.Locals("name")
+		return c.SendString(fmt.Sprintf("GET Hello %v", name))
 	})
 
 	app.Post("/hello", func(c *fiber.Ctx) error {
@@ -56,7 +82,7 @@ func main() {
 
 	//Static file
 	app.Static("/", "./wwwroot", fiber.Static{
-		Index: "index.html",
+		Index:         "index.html",
 		CacheDuration: time.Second * 10,
 	})
 
