@@ -91,6 +91,31 @@ func main() {
 		return fiber.NewError(fiber.StatusNotFound, "content not found")
 	})
 
+	//Group
+	v1 := app.Group("/v1", func(c *fiber.Ctx) error {
+		c.Set("Version", "v1")
+		return c.Next()
+	})
+	v1.Get("/hello", func(c *fiber.Ctx) error {
+		return c.SendString("Hello v1")
+	})
+	
+	v2 := app.Group("/v2", func(c *fiber.Ctx) error {
+		c.Set("Version", "v2")
+		return c.Next()
+	})
+	v2.Get("/hello", func(c *fiber.Ctx) error {
+		return c.SendString("Hello v2")
+	})
+
+	//Mount
+	userApp := fiber.New()
+	userApp.Get("/login", func(c *fiber.Ctx) error {
+		return c.SendString("Login")
+	})
+
+	app.Mount("/user", userApp)
+
 	app.Listen(":8000")
 }
 
