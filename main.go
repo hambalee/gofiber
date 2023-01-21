@@ -99,7 +99,7 @@ func main() {
 	v1.Get("/hello", func(c *fiber.Ctx) error {
 		return c.SendString("Hello v1")
 	})
-	
+
 	v2 := app.Group("/v2", func(c *fiber.Ctx) error {
 		c.Set("Version", "v2")
 		return c.Next()
@@ -108,13 +108,34 @@ func main() {
 		return c.SendString("Hello v2")
 	})
 
-	//Mount
+	//Mount  // curl "localhost:8000/user/login"
 	userApp := fiber.New()
 	userApp.Get("/login", func(c *fiber.Ctx) error {
 		return c.SendString("Login")
 	})
 
 	app.Mount("/user", userApp)
+
+	//Server
+	app.Server().MaxConnsPerIP = 1
+	app.Get("/server", func(c *fiber.Ctx) error {
+		time.Sleep(time.Second * 30)
+		return c.SendString("server")
+	})
+
+	//Environment  // curl "localhost:8000/env?name=asdf" | jq
+	app.Get("/env", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"BaseURL":     c.BaseURL(),
+			"Hostname":    c.Hostname(),
+			"IP":          c.IP(),
+			"IPs":         c.IPs(),
+			"OriginalURL": c.OriginalURL(),
+			"Path":        c.Path(),
+			"Protocol":    c.Protocol(),
+			"Subdomain":   c.Subdomains(),
+		})
+	})
 
 	app.Listen(":8000")
 }
