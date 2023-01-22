@@ -137,6 +137,12 @@ func main() {
 		})
 	})
 
+	//Body
+	app.Post("/body", func(c *fiber.Ctx) error {
+		fmt.Println(string(c.Body()))
+		return nil
+	})
+
 	app.Listen(":8000")
 }
 
