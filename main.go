@@ -139,9 +139,36 @@ func main() {
 
 	//Body
 	app.Post("/body", func(c *fiber.Ctx) error {
+		fmt.Printf("isJSON: %v\n", c.Is("json"))
 		fmt.Println(string(c.Body()))
+
+		person := Person{}
+		err := c.BodyParser(&person)
+		if err != nil {
+			return err
+		}
+		fmt.Println(person)
+
 		return nil
 	})
+	// curl localhost:8000/body -d '{"name": "J"}' -H content-type:application/json
+	// curl localhost:8000/body -d 'id=1&name=J' -H content-type:application/x-www-form-urlencoded
+
+	//Body
+	app.Post("/body2", func(c *fiber.Ctx) error {
+		fmt.Printf("isJSON: %v\n", c.Is("json"))
+		// fmt.Println(string(c.Body()))
+
+		data := map[string]interface{}{}
+		err := c.BodyParser(&data)
+		if err != nil {
+			return err
+		}
+		fmt.Println(data)
+
+		return nil
+	})
+	// curl localhost:8000/body2 -d '{"id":1,"name":"Hi"}' -H content-type:application/json
 
 	app.Listen(":8000")
 }
