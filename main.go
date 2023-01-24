@@ -8,9 +8,81 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
+	"github.com/jmoiron/sqlx"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
+var db *sqlx.DB
+
 func main() {
+
+	var err error
+	db, err = sqlx.Open("mysql", "root:keep1234@tcp(127.0.0.1)/keeplearning")
+	if err != nil {
+		panic(err)
+	}
+
+	app := fiber.New()
+
+	app.Post("/signup", Signup)
+	app.Post("/login", Login)
+	app.Get("/hello", Hello)
+
+	app.Listen(":8000")
+}
+
+func Signup(c *fiber.Ctx) error {
+	request := SignupRequest{}
+	err := c.BodyParser(&request)
+	if err != nil {
+		return nil
+	}
+
+	if request.Username == "" || request.Password == "" {
+		return fiber.ErrUnprocessableEntity
+	}
+
+	query := "insert user (username, password) values (?, ?)"
+	result, err := db.Exec(query, request.Username, request.Password)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
+	}
+
+	user := User{
+		Id: int(id),
+		Username: request.Username,
+		Password: request.Password,
+	}
+
+	
+	return c.JSON(user)
+}
+
+func Login(c *fiber.Ctx) error {
+	return nil
+}
+
+func Hello(c *fiber.Ctx) error {
+	return nil
+}
+
+type User struct {
+	Id       int    `db:"id" json:"id"`
+	Username string `db:"username" json:"username"`
+	Password string `db:"password" json:"password"`
+}
+
+type SignupRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func Fiber() {
 	app := fiber.New(fiber.Config{
 		Prefork: true,
 	})
