@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -43,8 +44,13 @@ func Signup(c *fiber.Ctx) error {
 		return fiber.ErrUnprocessableEntity
 	}
 
+	password, err := bcrypt.GenerateFromPassword([]byte(request.Password), 10)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
+	}
+
 	query := "insert user (username, password) values (?, ?)"
-	result, err := db.Exec(query, request.Username, request.Password)
+	result, err := db.Exec(query, request.Username, string(password))
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
 	}
@@ -54,13 +60,12 @@ func Signup(c *fiber.Ctx) error {
 	}
 
 	user := User{
-		Id: int(id),
+		Id:       int(id),
 		Username: request.Username,
-		Password: request.Password,
+		Password: string(password),
 	}
 
-	
-	return c.JSON(user)
+	return c.Status(fiber.StatusCreated).JSON(user)
 }
 
 func Login(c *fiber.Ctx) error {
