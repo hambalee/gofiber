@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,9 +13,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	_ "github.com/go-sql-driver/mysql"
+
+	jwtware "github.com/gofiber/jwt/v3"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 var db *sqlx.DB
+
+const jwtSecret = "secret_key"
 
 func main() {
 
@@ -25,6 +31,17 @@ func main() {
 	}
 
 	app := fiber.New()
+	// curl localhost:8000/hello -H "Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NzU0ODYzNDUsImlzcyI6IjYifQ.m7rKSSVjXDOUlePJsDzN0rfjZTDKs6IGC1gFHGD9wrc" -i
+	app.Use("/hello", jwtware.New(jwtware.Config{
+		SigningMethod: "HS256",
+		SigningKey:    []byte(jwtSecret),
+		SuccessHandler: func(c *fiber.Ctx) error {
+			return c.Next()
+		},
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			return fiber.ErrUnauthorized
+		},
+	}))
 
 	app.Post("/signup", Signup)
 	app.Post("/login", Login)
@@ -33,6 +50,7 @@ func main() {
 	app.Listen(":8000")
 }
 
+// curl localhost:8000/signup -H content-type:application/json -d '{"username":"hello","password":"world"}' -i
 func Signup(c *fiber.Ctx) error {
 	request := SignupRequest{}
 	err := c.BodyParser(&request)
@@ -68,12 +86,49 @@ func Signup(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(user)
 }
 
+// curl localhost:8000/login -H content-type:application/json -d '{"username":"hello","password":"world"}' -i
 func Login(c *fiber.Ctx) error {
-	return nil
+
+	request := LoginRequest{}
+	err := c.BodyParser(&request)
+	if err != nil {
+		return err
+	}
+
+	if request.Username == "" || request.Password == "" {
+		return fiber.ErrUnprocessableEntity
+	}
+
+	user := User{}
+	query := "select id, username, password from user where username=?"
+	err = db.Get(&user, query, request.Username)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "Incorrect username or password")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "Incorrect username or password")
+	}
+
+	cliams := jwt.RegisteredClaims{
+		Issuer:    strconv.Itoa(user.Id),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
+	}
+
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, cliams)
+	token, err := jwtToken.SignedString([]byte(jwtSecret))
+	if err != nil {
+		return fiber.ErrInternalServerError
+	}
+
+	return c.JSON(fiber.Map{
+		"jwtToken": token,
+	})
 }
 
 func Hello(c *fiber.Ctx) error {
-	return nil
+	return c.SendString("Hello World")
 }
 
 type User struct {
@@ -83,6 +138,11 @@ type User struct {
 }
 
 type SignupRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
